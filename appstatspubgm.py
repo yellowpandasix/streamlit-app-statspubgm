@@ -2,6 +2,8 @@ import os
 import json
 import streamlit as st
 from google.cloud import vision
+from PIL import Image  # Pillow library to handle images
+from io import BytesIO  # To handle binary image data
 
 # Récupérer les credentials Google Cloud depuis les secrets Streamlit
 google_credentials = st.secrets["google_cloud_key"]
@@ -16,20 +18,25 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "google_credentials.json"
 # Initialiser le client Google Cloud Vision
 client = vision.ImageAnnotatorClient()
 
-# Exemple d'utilisation de l'API Google Cloud Vision pour détecter du texte dans une image
+# Fonction pour utiliser l'API Google Cloud Vision pour détecter du texte dans une image
 def ocr_google_cloud(image):
-    # Transformation de l'image en format binaire
-    buffered = BytesIO()
-    image.save(buffered, format="PNG")
-    img_bytes = buffered.getvalue()
+    try:
+        # Transformation de l'image en format binaire
+        buffered = BytesIO()
+        image.save(buffered, format="PNG")
+        img_bytes = buffered.getvalue()
 
-    # Utilisation de Google Cloud Vision pour détecter le texte dans l'image
-    image_data = vision.Image(content=img_bytes)
-    response = client.text_detection(image=image_data)
-    texts = response.text_annotations
+        # Utilisation de Google Cloud Vision pour détecter le texte dans l'image
+        image_data = vision.Image(content=img_bytes)
+        response = client.text_detection(image=image_data)
+        texts = response.text_annotations
 
-    # Retourne le texte principal détecté
-    return texts[0].description if texts else ""
+        # Retourne le texte principal détecté
+        return texts[0].description if texts else "Aucun texte détecté"
+    
+    except Exception as e:
+        st.error(f"Erreur lors de l'extraction du texte : {e}")
+        return ""
 
 # Interface pour l'upload d'image
 uploaded_file = st.file_uploader("Choisissez un screenshot à uploader", type=["png", "jpg", "jpeg", "webp", "jfif"])
