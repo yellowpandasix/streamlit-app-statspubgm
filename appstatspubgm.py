@@ -79,21 +79,21 @@ def ocr_google_cloud(image):
         st.error(f"Erreur lors de l'extraction du texte : {e}")
         return ""
 
-# Créer un dictionnaire pour mapper les en-têtes
+# Créer un dictionnaire pour mapper les en-têtes dans plusieurs langues
 headers_mapping = {
-    "PLAYER_NAME": ["Player", "nom_joueur"],
-    "KILLS": ["Eliminations", "tueries"],
-    "ASSISTS": ["Assists", "assistances"],
-    "DAMAGE": ["Damage", "degats"],
-    "SURVIVAL_TIME": ["Survived", "temps_survie"],
-    # Ajouter d'autres correspondances ici
+    "PLAYER_NAME": ["Player", "Joueur", "nom_joueur"],
+    "KILLS": ["Eliminations", "Tueries", "Kills", "Morts"],
+    "ASSISTS": ["Assists", "Assistances", "Soutiens"],
+    "DAMAGE": ["Damage", "Dégâts", "Degats"],
+    "SURVIVAL_TIME": ["Survived", "Temps_survie", "Temps survécu"],
+    # Ajouter d'autres correspondances ici si nécessaire
 }
 
 # Créer un dictionnaire pour mapper les pseudos
 pseudos_mapping = {
     "GUILDPLAYER1": "Wagner",
     "GUILDPLAYER2": "John",
-    # Ajouter d'autres correspondances ici
+    # ajouter d'autres correspondances ici
 }
 
 # Fonction utilitaire pour mapper les en-têtes
@@ -110,7 +110,7 @@ def map_pseudo(pseudo):
 # Fonction d'extraction des données joueur
 def extract_player_data(ocr_text):
     player_data = []
-    regex_pattern = r"(?P<header>[A-Z_]+):\s+(?P<value>\S+)"
+    regex_pattern = r"(?P<header>[A-Za-z_]+):\s+(?P<value>\S+)"
     matches = re.finditer(regex_pattern, ocr_text)
 
     data = {}
