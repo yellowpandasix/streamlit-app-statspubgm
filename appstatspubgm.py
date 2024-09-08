@@ -48,7 +48,6 @@ google_credentials = {
     "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/vision-api-service-account%40statspubgm.iam.gserviceaccount.com"
 }
 
-
 # Écrire les credentials dans un fichier temporaire
 with open("google_credentials.json", "w") as f:
     json.dump(google_credentials, f)
@@ -71,27 +70,54 @@ def ocr_google_cloud(image):
         texts = response.text_annotations
 
         return texts[0].description if texts else "Aucun texte détecté"
-    
+
     except Exception as e:
         st.error(f"Erreur lors de l'extraction du texte : {e}")
         return ""
 
-# Fonction pour extraire les données spécifiques à partir du texte OCR
+# Créer un dictionnaire pour mapper les en-têtes
+headers_mapping = {
+    "PLAYER_NAME": ["Player", "nom_joueur"],
+    "KILLS": ["Eliminations", "tueries"],
+    "ASSISTS": ["Assists", "assistances"],
+    "DAMAGE": ["Damage", "degats"],
+    "SURVIVAL_TIME": ["Survived", "temps_survie"],
+    # ajouter d'autres correspondances ici
+}
+
+# Créer un dictionnaire pour mapper les pseudos
+pseudos_mapping = {
+    "GUILDPLAYER1": "Wagner",
+    "GUILDPLAYER2": "John",
+    # ajouter d'autres correspondances ici
+}
+
+# Modifier la fonction extract_player_data pour remplacer les en-têtes et les pseudos
 def extract_player_data(ocr_text):
     player_data = []
-    regex_pattern = r"(?P<player_name>[A-Za-z0-9]+)\s+(?P<kills>\d+)\s+(?P<assists>\d+)\s+(?P<damage>\d+)\s+(?P<survival_time>[0-9]+[.,]?[0-9]*)\s+Min"
+    # Utiliser une expression régulière pour extraire les en-têtes et les valeurs
+    regex_pattern = r"(?P<header>[A-Z_]+):\s+(?P<value>\S+)"
     matches = re.finditer(regex_pattern, ocr_text)
 
+    data = {}
     for match in matches:
-        data = {
-            "player_name": match.group("player_name"),
-            "kills": match.group("kills"),
-            "assists": match.group("assists"),
-            "damage": match.group("damage"),
-            "survival_time": match.group("survival_time"),
-        }
-        player_data.append(data)
-    
+        header = match.group("header")
+        value = match.group("value")
+        # Vérifier si l'en-tête extrait correspond à l'une des correspondances dans la liste
+        for key, values in headers_mapping.items():
+            if header in values:
+                header = key
+                break
+        # Remplacer le pseudo par le pseudo correspondant dans le dictionnaire
+        if header == "PLAYER_NAME":
+            value = pseudos_mapping.get(value, value)
+        data[header] = value
+
+        # Si nous avons toutes les informations nécessaires pour un joueur, ajouter les données à la liste
+        if set(headers_mapping.keys()).issubset(data.keys()):
+            player_data.append(data)
+            data = {}
+
     return player_data
 
 # Créer un tableau pour stocker les résultats
@@ -121,15 +147,15 @@ if uploaded_file is not None:
     if player_stats:
         for player in player_stats:
             final_data.append({
-                "Players": player["player_name"],
+                "Players": player["PLAYER_NAME"],
                 "Date": date,
                 "Month": month,
                 "Year": year,
                 "Week": week,
-                "Kills": player["kills"],
-                "Assist": player["assists"],
-                "Damage": player["damage"],
-                "Survival time": player["survival_time"]
+                "Kills": player["KILLS"],
+                "Assist": player["ASSISTS"],
+                "Damage": player["DAMAGE"],
+                "Survival time": player["SURVIVAL_TIME"]
             })
         st.write("Données ajoutées au tableau.")
     else:
