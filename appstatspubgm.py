@@ -6,6 +6,7 @@ from google.cloud import vision
 from PIL import Image
 from io import BytesIO
 import re
+import datetime
 
 # Credentials Google Cloud directement dans le code
 google_credentials = {
@@ -69,6 +70,9 @@ def ocr_google_cloud(image):
         response = client.text_detection(image=image_data)
         texts = response.text_annotations
 
+        if response.error.message:
+            raise Exception(f"API error: {response.error.message}")
+
         return texts[0].description if texts else "Aucun texte détecté"
 
     except Exception as e:
@@ -82,52 +86,60 @@ headers_mapping = {
     "ASSISTS": ["Assists", "assistances"],
     "DAMAGE": ["Damage", "degats"],
     "SURVIVAL_TIME": ["Survived", "temps_survie"],
-    # ajouter d'autres correspondances ici
+    # Ajouter d'autres correspondances ici
 }
 
 # Créer un dictionnaire pour mapper les pseudos
 pseudos_mapping = {
     "GUILDPLAYER1": "Wagner",
     "GUILDPLAYER2": "John",
-    # ajouter d'autres correspondances ici
+    # Ajouter d'autres correspondances ici
 }
 
-# Modifier la fonction extract_player_data pour remplacer les en-têtes et les pseudos
+# Fonction utilitaire pour mapper les en-têtes
+def map_header(header):
+    for key, values in headers_mapping.items():
+        if header in values:
+            return key
+    return header  # Retourner l'en-tête original si aucune correspondance trouvée
+
+# Fonction utilitaire pour mapper les pseudos
+def map_pseudo(pseudo):
+    return pseudos_mapping.get(pseudo, pseudo)  # Retourne le pseudo d'origine si aucune correspondance
+
+# Fonction d'extraction des données joueur
 def extract_player_data(ocr_text):
     player_data = []
-    # Utiliser une expression régulière pour extraire les en-têtes et les valeurs
     regex_pattern = r"(?P<header>[A-Z_]+):\s+(?P<value>\S+)"
     matches = re.finditer(regex_pattern, ocr_text)
 
     data = {}
     for match in matches:
-        header = match.group("header")
-        value = match.group("value")
-        # Vérifier si l'en-tête extrait correspond à l'une des correspondances dans la liste
-        for key, values in headers_mapping.items():
-            if header in values:
-                header = key
-                break
-        # Remplacer le pseudo par le pseudo correspondant dans le dictionnaire
-        if header == "PLAYER_NAME":
-            value = pseudos_mapping.get(value, value)
+        header = map_header(match.group("header"))  # Utilisation de la fonction map_header
+        value = map_pseudo(match.group("value")) if header == "PLAYER_NAME" else match.group("value")
         data[header] = value
 
-        # Si nous avons toutes les informations nécessaires pour un joueur, ajouter les données à la liste
+        # Vérifier si toutes les clés nécessaires sont présentes pour un joueur
         if set(headers_mapping.keys()).issubset(data.keys()):
             player_data.append(data)
-            data = {}
+            data = {}  # Réinitialiser le dictionnaire pour le joueur suivant
 
     return player_data
 
 # Créer un tableau pour stocker les résultats
 final_data = []
 
-# Demander les informations globales de la partie
-date = st.text_input("Entrez la date du match (dd/mm/yyyy):")
+# Demander les informations globales de la partie avec validation
+date_input = st.text_input("Entrez la date du match (dd/mm/yyyy):")
 month = st.selectbox("Sélectionnez le mois :", ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"])
 year = st.text_input("Entrez l'année :")
 week = st.text_input("Entrez la semaine :")
+
+# Validation du format de la date
+try:
+    date = datetime.datetime.strptime(date_input, "%d/%m/%Y")
+except ValueError:
+    st.error("Le format de la date est incorrect. Utilisez le format jj/mm/aaaa.")
 
 # Interface pour l'upload d'image
 uploaded_file = st.file_uploader("Choisissez un screenshot à uploader", type=["png", "jpg", "jpeg", "webp", "jfif"])
@@ -148,7 +160,7 @@ if uploaded_file is not None:
         for player in player_stats:
             final_data.append({
                 "Players": player["PLAYER_NAME"],
-                "Date": date,
+                "Date": date_input,
                 "Month": month,
                 "Year": year,
                 "Week": week,
@@ -167,9 +179,20 @@ if final_data:
     st.write("Tableau final des statistiques :")
     st.dataframe(df)
 
-    # Téléchargement du tableau en fichier Excel
-    def convert_df(df):
+    # Téléchargement du tableau en fichier CSV ou Excel
+    def convert_df_to_csv(df):
         return df.to_csv(index=False).encode('utf-8')
 
-    csv = convert_df(df)
+    def convert_df_to_excel(df):
+        output = BytesIO()
+        writer = pd.ExcelWriter(output, engine='openpyxl')
+        df.to_excel(writer, index=False, sheet_name='PUBGM Stats')
+        writer.save()
+        processed_data = output.getvalue()
+        return processed_data
+
+    csv = convert_df_to_csv(df)
     st.download_button("Télécharger le tableau en CSV", data=csv, file_name="statistiques_pubgm.csv", mime="text/csv")
+
+    excel = convert_df_to_excel(df)
+    st.download_button("Télécharger le tableau en Excel", data=excel, file_name="statistiques_pubgm.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
