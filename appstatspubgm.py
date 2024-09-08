@@ -27,7 +27,7 @@ def process_ocr_data(ocr_text):
     return df
 
 # Interface utilisateur pour uploader l'image
-uploaded_file = st.file_uploader("Choisissez un screenshot à uploader", type=["png", "jpg", "jpeg", "webp"])
+uploaded_file = st.file_uploader("Choisissez un screenshot à uploader", type=["png", "jpg", "jpeg", "webp", "jfif"])
 
 if uploaded_file is not None:
     # Ouvrir l'image
