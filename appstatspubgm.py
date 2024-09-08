@@ -107,23 +107,25 @@ def map_header(header):
 def map_pseudo(pseudo):
     return pseudos_mapping.get(pseudo, pseudo)  # Retourne le pseudo d'origine si aucune correspondance
 
-# Fonction d'extraction des données joueur
+# Fonction pour extraire les joueurs et leurs statistiques
 def extract_player_data(ocr_text):
+    lines = ocr_text.splitlines()  # Divise le texte en lignes
     player_data = []
-    regex_pattern = r"(?P<header>[A-Za-z_]+):\s+(?P<value>\S+)"
-    matches = re.finditer(regex_pattern, ocr_text)
+    current_player = {}
 
-    data = {}
-    for match in matches:
-        header = map_header(match.group("header"))  # Utilisation de la fonction map_header
-        value = map_pseudo(match.group("value")) if header == "PLAYER_NAME" else match.group("value")
-        data[header] = value
-
-        # Vérifier si toutes les clés nécessaires sont présentes pour un joueur
-        if set(headers_mapping.keys()).issubset(data.keys()):
-            player_data.append(data)
-            data = {}  # Réinitialiser le dictionnaire pour le joueur suivant
-
+    # On cherche les indices des lignes qui contiennent les termes importants
+    for i, line in enumerate(lines):
+        if "Player" in line or any(player in line for player in pseudos_mapping.keys()):
+            # Extraction des informations de chaque joueur
+            current_player = {
+                "PLAYER_NAME": line.strip(),
+                "KILLS": lines[i+1].strip() if i+1 < len(lines) else "0",  # Lignes suivantes pour les Kills
+                "ASSISTS": lines[i+2].strip() if i+2 < len(lines) else "0",  # Lignes suivantes pour les Assists
+                "DAMAGE": lines[i+3].strip() if i+3 < len(lines) else "0",  # Lignes suivantes pour les Damage
+                "SURVIVAL_TIME": lines[i+4].strip() if i+4 < len(lines) else "0"  # Lignes suivantes pour Survived
+            }
+            player_data.append(current_player)
+    
     return player_data
 
 # Créer un tableau pour stocker les résultats
